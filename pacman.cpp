@@ -9,7 +9,17 @@ const int BLOCK_SIZE = 20;
 const int ROWS = 31;
 const int COLS = 28;
 
-string map[ROWS];
+struct map_position{
+	int x, y;
+	map_position(){
+		x=0; y=0;
+	}
+	map_position(int x, int y){
+		this->x = x;
+		this->y = y;
+	}
+};
+
 
 void renderMap(SDL_Renderer* r,SDL_Rect& block, string map[31]){
 	string line;
@@ -25,13 +35,63 @@ void renderMap(SDL_Renderer* r,SDL_Rect& block, string map[31]){
 	}
 }
 
-bool canMove(int x1, int y1, int x2, int y2){
-	cout << map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] << " " << y2/BLOCK_SIZE << " " << x2/BLOCK_SIZE << "\n";
+bool canMove(int x1, int y1, int x2, int y2, string map[31]){
 	return map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] != '*' && map[y2/BLOCK_SIZE][x2/BLOCK_SIZE] != '*';
 }
+
+bool check_pair(map_position* pair, string map[31]){
+	return canMove(pair[0].x, pair[0].y, pair[1].x, pair[1].y, map);
+}
+
+
+int rect_right(SDL_Rect& rect){
+	return rect.x + rect.w - 1;
+}
+
+int rect_left(SDL_Rect& rect){
+	return rect.x;
+}
+
+int rect_top(SDL_Rect& rect){
+	return rect.y;
+}
+
+int rect_down(SDL_Rect& rect){
+	return rect.y + rect.h  - 1;
+}
+
+map_position* create_pair(int x1, int y1, int x2, int y2){
+	map_position* pair = new map_position[2];
+	map_position* a = new map_position(x1, y1);
+	map_position* b = new map_position(x2, y2);
+	pair[0] = *a;
+	pair[1] = *b;
+	return pair;
+}
+
+map_position* left_side(SDL_Rect& p, int speed){
+	int left = rect_left(p);
+	map_position* pair = create_pair(left - speed, rect_top(p), left - speed,  rect_down(p));
+	return pair;
+}
+
+map_position* right_side(SDL_Rect& p, int speed){
+	map_position* pair = create_pair(rect_right(p) + speed, rect_top(p), rect_right(p) + speed, rect_down(p));
+	return pair;
+}
+
+map_position* top_side(SDL_Rect& p, int speed){
+	return create_pair(rect_left(p), rect_top(p) - speed, rect_right(p), rect_top(p) - speed);
+}
+
+map_position* down_side(SDL_Rect& p, int speed){
+	return create_pair(rect_left(p), rect_down(p) + speed, rect_right(p), rect_down(p) + speed);
+}
+
 int main(){
 	const int WIDTH = BLOCK_SIZE * COLS;
 	const int HEIGHT = BLOCK_SIZE * ROWS;
+	string map[ROWS];
 	//read file
 	string line;
 	ifstream file("map.txt");
@@ -55,7 +115,6 @@ int main(){
 	int speed = 4;
 	SDL_Rect p = { BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE };
 	SDL_Rect block = {0, 0, BLOCK_SIZE, BLOCK_SIZE};
-	Pos pos, pb;
 
 	const int NONE = -1;
 	const int LEFT = 0;
@@ -68,6 +127,8 @@ int main(){
 	time = SDL_GetTicks();
 	int direction_active = NONE;
 	int direction_key = NONE;
+
+	map_position* pair;
 	while(run){
 		while(SDL_PollEvent(&e) != 0){
 			if(e.type == SDL_QUIT){
@@ -97,87 +158,73 @@ int main(){
 		}
 
 		if(accumulator >= 100/6){
-
-			//can we move in that direction
-			int x1=0, y1=0, x2=0, y2=0;
-			if(direction_key != NONE){
-				if(direction_key == LEFT){
-					x1 = p.x - speed;
-					y1 = p.y;
-
-					x2 = x1;
-					y2 = p.y + p.h - 1;
-					if(map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] != '*' && map[y2/BLOCK_SIZE][x2/BLOCK_SIZE] != '*'){
-						cout << "can move left\n";
-						direction_active = LEFT;
-					} else {
-						cout << "can't move left\n";
-					}
-				} else if(direction_key == RIGHT){
-					x1 = p.x + p.w + speed - 1;
-					y1 = p.y;
-					x2 = x1;
-					y2 = p.y + p.h - 1;
-					if(map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] != '*' && map[y2/BLOCK_SIZE][x2/BLOCK_SIZE] != '*'){
-						cout << "can move right\n";
-						direction_active = RIGHT;
-					} else {
-						cout << "can't move right\n";
-					}
-				} else if(direction_key == DOWN){
-					x1 = p.x;
-					y1 = p.y + p.h + speed;
-					x2 = p.x + p.w - 1;
-					y2 = y1;
-					if(canMove(x1, y1, x2, y2)){
-						direction_active = DOWN;
-					} else {
-						cout << "can't move down\n";
-					}
-				} else if(direction_key == UP){
-					x1 = p.x;
-					y1 = p.y - speed;
-					x2 = p.x + p.w - 1;
-					y2 = y1;
-					if(canMove(x1, y1, x2, y2)){
-						direction_active = UP;
-					}
-				}
+			switch(direction_key){
+				case LEFT:
+					pair = left_side(p, speed);	
+					break;
+				case RIGHT:
+					pair = right_side(p, speed);
+					break;
+				case UP:
+					pair = top_side(p, speed);
+					break;
+				case DOWN:
+					pair = down_side(p, speed);
+					break;
+				default:
+					pair = NULL;
+					break;
 			}
 
-			if(direction_active == RIGHT){
-				x1 = p.x + p.w + speed - 1;
-				y1 = p.y;
-				x2 = x1;
-				y2 = p.y + p.h - 1;
-				if(map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] != '*' && map[y2/BLOCK_SIZE][x2/BLOCK_SIZE] != '*'){
-					p.x += speed;
-				}
-			} else if(direction_active == LEFT){
-				x1 = p.x - speed;
-				y1 = p.y;
-				x2 = x1;
-				y2 = p.y + p.h - 1;
-				if(map[y1/BLOCK_SIZE][x1/BLOCK_SIZE] != '*' && map[y2/BLOCK_SIZE][x2/BLOCK_SIZE] != '*'){
-					p.x -= speed;
-				}
-			} else if(direction_active == DOWN){
-				x1 = p.x;
-				y1 = p.y + p.h + speed - 1;
-				x2 = p.x + p.w - 1;
-				y2 = y1;
-				if(canMove(x1, y1, x2, y2)){
-					p.y += speed;
-				}
-			} else if(direction_active == UP){
-				x1 = p.x;
-				y1 = p.y - speed;
-				x2 = p.x + p.w - 1;
-				y2 = y1;
-				if(canMove(x1, y1, x2, y2)){
-					p.y -= speed;
-				}
+			if(pair != NULL && check_pair(pair, map)){
+				direction_active = direction_key;
 			}
+
+			if(pair != NULL){
+				delete[] pair;
+				pair = NULL;
+			}
+
+			int dx = 0, dy = 0;
+			switch(direction_active){
+				case LEFT:
+					pair = left_side(p, speed);	
+					dx = -speed;
+					dy = 0;
+					break;
+				case RIGHT:
+					pair = right_side(p, speed);
+					dx = speed;
+					dy = 0;
+					break;
+				case UP:
+					pair = top_side(p, speed);
+					dy = -speed;
+					dx = 0;
+					break;
+				case DOWN:
+					pair = down_side(p, speed);
+					dy = speed;
+					dx = 0;
+					break;
+				default:
+					pair = NULL;
+					break;
+			}
+
+			if(pair != NULL && check_pair(pair, map)){
+				p.x += dx;
+				p.y += dy;
+			} else {
+				dx = 0;
+				dy = 0;
+			}
+
+			if(pair != NULL){
+				delete[] pair;
+				pair = NULL;
+			}
+
 
 			SDL_SetRenderDrawColor(render, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(render);
