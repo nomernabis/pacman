@@ -3,6 +3,9 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <queue>
+#include <set>
+
 using namespace std;
 
 const int BLOCK_SIZE = 20;
@@ -88,6 +91,93 @@ map_position* down_side(SDL_Rect& p, int speed){
 	return create_pair(rect_left(p), rect_down(p) + speed, rect_right(p), rect_down(p) + speed);
 }
 
+#include <map>
+#include <algorithm>
+
+vector<int> bfs(SDL_Rect rect, string m[31]){
+	queue<int> to_visit;
+	set<int> visited;
+	map<int, int> parents;
+	vector<int> path;
+
+	int root = (rect.y / BLOCK_SIZE) * COLS + (rect.x / BLOCK_SIZE);
+	to_visit.push(root);
+	visited.insert(root);
+
+	parents[root] = -1;
+
+	int node;
+	int r,c;
+	while(!to_visit.empty()){
+		node = to_visit.front();
+		to_visit.pop();
+		r = node / COLS;
+		c = node % COLS;
+
+		//cout << "at " << r << " " << c << "\n";
+		if(m[r][c] != 'p'){
+			//get adjacent nodes
+			if(c - 1 >= 0 && m[r][c-1] != '*' && visited.find(r * COLS + c - 1) == visited.end()){
+				to_visit.push(r * COLS + c - 1);
+				visited.insert(r * COLS + c - 1);
+				parents[r*COLS + c - 1] = node;
+			}
+			if(c + 1 < COLS && m[r][c+1] != '*' && visited.find(r * COLS + c + 1) == visited.end()){
+				to_visit.push(r * COLS + c + 1);
+				visited.insert(r * COLS + c + 1);
+				parents[r * COLS + c + 1] = node;
+			}
+			if(r - 1 >= 0 && m[r-1][c] != '*' && visited.find((r-1)* COLS + c) == visited.end()){
+				to_visit.push((r-1)*COLS + c);
+				visited.insert((r-1)*COLS + c);
+				parents[(r-1)*COLS + c] = node;
+			}
+			if(r + 1 < ROWS && m[r+1][c] != '*'  && visited.find((r+1)* COLS + c) == visited.end()){
+				to_visit.push((r+1) * COLS + c);
+				visited.insert((r+1) * COLS + c);
+				parents[(r+1) * COLS + c] = node;
+			}
+		} else {
+			//create path
+			path.push_back(node);
+			int cur = parents[node];
+			while(cur != -1){
+				path.push_back(cur);
+				cur = parents[cur];
+			}
+			reverse(path.begin(), path.end());
+			break;
+		}
+	}
+	return path;
+}
+
+void moveTo(SDL_Rect& r, vector<int>& path, int speed){
+	if(path.size() < 1) return;
+	
+	int next = path[1];
+
+	int y = (next/COLS) * BLOCK_SIZE; 
+	int x = (next%COLS) * BLOCK_SIZE;
+
+	int dx = x - r.x;
+	int dy = y - r.y;
+	if(dx != 0){
+		if(dx < 0){
+			r.x-=speed;
+		} else {
+			r.x+=speed;
+		}
+	}
+	if(dy != 0){
+		if(dy < 0){
+			r.y -= speed;
+		} else {
+			r.y += speed;
+		}
+	}
+}
+
 int main(){
 	const int WIDTH = BLOCK_SIZE * COLS;
 	const int HEIGHT = BLOCK_SIZE * ROWS;
@@ -114,6 +204,9 @@ int main(){
 	SDL_Event e;
 	int speed = 4;
 	SDL_Rect p = { BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE };
+
+	SDL_Rect enemy = {WIDTH -  2 * BLOCK_SIZE, HEIGHT - 2*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE};
+
 	SDL_Rect block = {0, 0, BLOCK_SIZE, BLOCK_SIZE};
 
 	const int NONE = -1;
@@ -129,6 +222,7 @@ int main(){
 	int direction_key = NONE;
 
 	map_position* pair;
+	map[p.y/BLOCK_SIZE][p.x/BLOCK_SIZE] = 'p';
 	while(run){
 		while(SDL_PollEvent(&e) != 0){
 			if(e.type == SDL_QUIT){
@@ -213,8 +307,10 @@ int main(){
 			}
 
 			if(pair != NULL && check_pair(pair, map)){
+				map[p.y/BLOCK_SIZE][p.x/BLOCK_SIZE] = ' ';
 				p.x += dx;
 				p.y += dy;
+				map[p.y/BLOCK_SIZE][p.x/BLOCK_SIZE] = 'p';
 			} else {
 				dx = 0;
 				dy = 0;
@@ -225,22 +321,41 @@ int main(){
 				pair = NULL;
 			}
 
-
+			vector<int> path = bfs(enemy, map);
+			moveTo(enemy, path, speed);
+			//
 			SDL_SetRenderDrawColor(render, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(render);
 
 			SDL_SetRenderDrawColor(render, 0xFF, 0, 0, 0xFF);
 			renderMap(render, block, map);
 
+			int node_r, node_c;
+			SDL_SetRenderDrawColor(render, 0, 0xFF, 0, 0xFF);
+
+			for(int i:path){
+				node_r = i / COLS;
+				node_c = i % COLS;
+				
+				block.x = node_c * BLOCK_SIZE;
+				block.y = node_r * BLOCK_SIZE;
+
+				SDL_RenderFillRect(render, &block);
+			}
+
+
 			SDL_SetRenderDrawColor(render, 0xFF, 0xFF, 0, 0xFF);
 			SDL_RenderFillRect(render, &p);
 
+			SDL_SetRenderDrawColor(render, 0, 0, 0xFF, 0xFF);
+			SDL_RenderFillRect(render, &enemy);
+
 			SDL_RenderPresent(render);
-				accumulator = 0;
-			}
-			int diff = SDL_GetTicks() - time;
-			accumulator += diff;
-			time = SDL_GetTicks();
+			accumulator = 0;
+		}
+		int diff = SDL_GetTicks() - time;
+		accumulator += diff;
+		time = SDL_GetTicks();
 	}
 
 	return 0;
