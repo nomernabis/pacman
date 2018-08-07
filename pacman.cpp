@@ -8,7 +8,8 @@
 
 using namespace std;
 
-const int BLOCK_SIZE = 20;
+const int speed = 3;
+const int BLOCK_SIZE = 7 * speed;
 const int ROWS = 31;
 const int COLS = 28;
 
@@ -198,6 +199,7 @@ void moveTo(SDL_Rect& r, vector<int>& path, int speed, string map[31]){
 }
 
 int main(){
+
 	const int WIDTH = BLOCK_SIZE * COLS;
 	const int HEIGHT = BLOCK_SIZE * ROWS;
 	string map[ROWS];
@@ -221,7 +223,6 @@ int main(){
 	int dx=0, dy=0;
 	bool run = true;
 	SDL_Event e;
-	int speed = 5;
 	SDL_Rect p = { BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE };
 
 	SDL_Rect enemy = {WIDTH -  2 * BLOCK_SIZE, HEIGHT - 2*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE};
