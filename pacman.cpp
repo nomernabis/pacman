@@ -152,7 +152,7 @@ vector<int> bfs(SDL_Rect rect, string m[31]){
 	return path;
 }
 
-void moveTo(SDL_Rect& r, vector<int>& path, int speed){
+void moveTo(SDL_Rect& r, vector<int>& path, int speed, string map[31]){
 	if(path.size() < 1) return;
 	
 	int next = path[1];
@@ -162,20 +162,39 @@ void moveTo(SDL_Rect& r, vector<int>& path, int speed){
 
 	int dx = x - r.x;
 	int dy = y - r.y;
+
+	int s = speed;
+	map_position* pair;
+	int s_x = 0, s_y = 0;
 	if(dx != 0){
 		if(dx < 0){
-			r.x-=speed;
+			pair = left_side(r, s);
+			if(check_pair(pair, map)){
+				s_x = -s;
+			} 
 		} else {
-			r.x+=speed;
+			pair = right_side(r, s);
+			if(check_pair(pair, map)){
+				s_x = s;
+			} 
 		}
-	}
+	} 
 	if(dy != 0){
 		if(dy < 0){
-			r.y -= speed;
+			pair = top_side(r, s);
+			if(check_pair(pair, map)){
+				s_y = -s;
+			} 
 		} else {
-			r.y += speed;
+			pair = down_side(r, s);
+			if(check_pair(pair, map)){
+				s_y = s;
+			}
 		}
 	}
+	r.x+=s_x;
+	r.y+=s_y;
+	delete[] pair;
 }
 
 int main(){
@@ -202,7 +221,7 @@ int main(){
 	int dx=0, dy=0;
 	bool run = true;
 	SDL_Event e;
-	int speed = 4;
+	int speed = 5;
 	SDL_Rect p = { BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE };
 
 	SDL_Rect enemy = {WIDTH -  2 * BLOCK_SIZE, HEIGHT - 2*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE};
@@ -285,6 +304,7 @@ int main(){
 					pair = left_side(p, speed);	
 					dx = -speed;
 					dy = 0;
+
 					break;
 				case RIGHT:
 					pair = right_side(p, speed);
@@ -310,6 +330,7 @@ int main(){
 				map[p.y/BLOCK_SIZE][p.x/BLOCK_SIZE] = ' ';
 				p.x += dx;
 				p.y += dy;
+				//move(p, direction, speed);
 				map[p.y/BLOCK_SIZE][p.x/BLOCK_SIZE] = 'p';
 			} else {
 				dx = 0;
@@ -322,7 +343,7 @@ int main(){
 			}
 
 			vector<int> path = bfs(enemy, map);
-			moveTo(enemy, path, speed);
+			moveTo(enemy, path, speed, map);
 			//
 			SDL_SetRenderDrawColor(render, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(render);
