@@ -95,15 +95,13 @@ map_position* down_side(SDL_Rect& p, int speed){
 #include <map>
 #include <algorithm>
 
-vector<int> bfs(SDL_Rect rect, string m[31]){
+vector<int> bfs(SDL_Rect rect, string m[31], int aim){
     queue<int> to_visit;
     set<int> visited;
     map<int, int> parents;
     vector<int> path;
 
     int root = (rect.y / BLOCK_SIZE) * COLS + (rect.x / BLOCK_SIZE);
-
-    cout << "THE ROOT IS " << root << "\n";
 
     to_visit.push(root);
     visited.insert(root);
@@ -118,11 +116,8 @@ vector<int> bfs(SDL_Rect rect, string m[31]){
         to_visit.pop();
         r = node / COLS;
         c = node % COLS;
-
-         cout << "THE ROOT2 IS " << r*COLS + c << "\n";
-        //cout << "at " << r << " " << c << "\n";
-
-        if(m[r][c] != 'p'){
+        
+        if(node != aim){
             //get adjacent nodes
             if(c - 1 >= 0 && m[r][c-1] != '*' && visited.find(r * COLS + c - 1) == visited.end()){
                 to_visit.push(r * COLS + c - 1);
@@ -165,14 +160,14 @@ vector<int> bfs(SDL_Rect rect, string m[31]){
 void moveTo(SDL_Rect& r, vector<int>& path, int speed, string map[31]){
     if(path.size() < 1) return;
     
-    cout << "fucking size " << path.size() << "\n";
+    
     int next = -1;
     if(path.size() > 1){
         next = path[1];
      } else {
         next = path[0];
      }
-    cout << "first is " << next << "\n";
+   
 
     int y = (next/COLS) * BLOCK_SIZE; 
     int x = (next%COLS) * BLOCK_SIZE;
@@ -183,7 +178,7 @@ void moveTo(SDL_Rect& r, vector<int>& path, int speed, string map[31]){
     int s = speed;
     map_position* pair = NULL;
     int s_x = 0, s_y = 0;
-    cout << "dx dy" << dx << " " << dy << "\n";
+ 
     if(dx != 0){
         if(dx < 0){
             pair = left_side(r, s);
@@ -217,6 +212,15 @@ void moveTo(SDL_Rect& r, vector<int>& path, int speed, string map[31]){
     }
 }
 
+void correct(int& r, int& c, string map[31], int dx, int dy){
+    if(map[r][c] == '*' || map[r][c] == 'h'){
+        c+=dx;
+        r+=dy;
+        correct(r, c, map, dx, dy);
+    }
+    return;
+}
+
 int main(){
 
     const int WIDTH = BLOCK_SIZE * COLS;
@@ -245,6 +249,8 @@ int main(){
     SDL_Rect p = { BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE };
 
     SDL_Rect enemy = {WIDTH -  2 * BLOCK_SIZE, HEIGHT - 2*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE};
+
+    SDL_Rect green_enemy = {2 * BLOCK_SIZE, HEIGHT - 2 * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE};
 
     SDL_Rect block = {0, 0, BLOCK_SIZE, BLOCK_SIZE};
 
@@ -366,9 +372,41 @@ int main(){
                     pair = NULL;
                 }
 
-                path = bfs(enemy, map);
+                path = bfs(enemy, map, (p.y / BLOCK_SIZE) * COLS + (p.x / BLOCK_SIZE));
                 moveTo(enemy, path, speed, map);
-           
+                //target for green
+                int target = -1;
+                int t_x = p.x/BLOCK_SIZE, t_y = p.y/BLOCK_SIZE;
+                if(direction_active == RIGHT){
+                    if(t_x + 4 < COLS){
+                        t_x = t_x + 4;
+                        correct(t_y, t_x, map, -1, 0);
+                    }
+                } else 
+                if(direction_active == LEFT){
+                    if(t_x - 4 >= 0){
+                        t_x = t_x - 4;
+                        correct(t_y, t_x, map, 1, 0);
+                    }
+                } else 
+                if(direction_active == UP){
+                    if(t_y - 4 >= 0){
+                        t_y = t_y - 4;
+                        correct(t_y, t_x, map, 0, 1);
+                    }
+                } else 
+                if(direction_active == DOWN){
+                    if(t_y + 4 < ROWS){
+                        t_y = t_y + 4;
+                        correct(t_y, t_x, map, 0, -1);
+                    }
+                }
+                
+                target = t_y * COLS + t_x;
+                cout << "the target is \n";
+                cout << "target " << target << "\n";
+                path = bfs(green_enemy, map, target);
+                moveTo(green_enemy, path, speed, map);
            }
 
             //
@@ -381,13 +419,27 @@ int main(){
             int node_r, node_c;
             SDL_SetRenderDrawColor(render, 0, 0xFF, 0, 0xFF);
 
-            cout << "PACMAN IS AT: " << (p.y/BLOCK_SIZE)*COLS + p.x/BLOCK_SIZE << "\n";
+            SDL_SetRenderDrawColor(render, 0, 0, 0, 0xFF);
+            for(int i:path){
+                int row = i / COLS;
+                int col = i % COLS;
+                block.x = col * BLOCK_SIZE;
+                block.y = row * BLOCK_SIZE;
+                SDL_RenderFillRect(render, &block);
+            }
 
             SDL_SetRenderDrawColor(render, 0xFF, 0xFF, 0, 0xFF);
             SDL_RenderFillRect(render, &p);
 
             SDL_SetRenderDrawColor(render, 0, 0, 0xFF, 0xFF);
             SDL_RenderFillRect(render, &enemy);
+
+            SDL_SetRenderDrawColor(render, 0, 0xFF, 0, 0xFF);
+            SDL_RenderFillRect(render, &green_enemy);
+
+            SDL_SetRenderDrawColor(render, 0, 0, 0xFF, 0xFF);
+            SDL_RenderFillRect(render, &enemy);
+
 
             SDL_RenderPresent(render);
             accumulator = 0;
